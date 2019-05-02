@@ -257,6 +257,11 @@ type ChildListState = {
 
 type State = {first: number, last: number};
 
+const VirtualizedListContext = React.createContext({
+  virtualizedCell: undefined,
+  virtualizedList: undefined,
+});
+
 /**
  * Base implementation for the more convenient [`<FlatList>`](/react-native/docs/flatlist.html)
  * and [`<SectionList>`](/react-native/docs/sectionlist.html) components, which are also better
@@ -468,43 +473,7 @@ class VirtualizedList extends React.PureComponent<Props, State> {
     windowSize: 21, // multiples of length
   };
 
-  static contextTypes = {
-    virtualizedCell: PropTypes.shape({
-      cellKey: PropTypes.string,
-    }),
-    virtualizedList: PropTypes.shape({
-      getScrollMetrics: PropTypes.func,
-      horizontal: PropTypes.bool,
-      getOutermostParentListRef: PropTypes.func,
-      getNestedChildState: PropTypes.func,
-      registerAsNestedChild: PropTypes.func,
-      unregisterAsNestedChild: PropTypes.func,
-    }),
-  };
-
-  static childContextTypes = {
-    virtualizedList: PropTypes.shape({
-      getScrollMetrics: PropTypes.func,
-      horizontal: PropTypes.bool,
-      getOutermostParentListRef: PropTypes.func,
-      getNestedChildState: PropTypes.func,
-      registerAsNestedChild: PropTypes.func,
-      unregisterAsNestedChild: PropTypes.func,
-    }),
-  };
-
-  getChildContext() {
-    return {
-      virtualizedList: {
-        getScrollMetrics: this._getScrollMetrics,
-        horizontal: this.props.horizontal,
-        getOutermostParentListRef: this._getOutermostParentListRef,
-        getNestedChildState: this._getNestedChildState,
-        registerAsNestedChild: this._registerAsNestedChild,
-        unregisterAsNestedChild: this._unregisterAsNestedChild,
-      },
-    };
-  }
+  static contextType = VirtualizedListContext;
 
   _getCellKey(): string {
     return (
@@ -974,15 +943,28 @@ class VirtualizedList extends React.PureComponent<Props, State> {
     this._hasMore =
       this.state.last < this.props.getItemCount(this.props.data) - 1;
 
-    const ret = React.cloneElement(
-      (this.props.renderScrollComponent || this._defaultRenderScrollComponent)(
-        scrollProps,
-      ),
-      {
-        ref: this._captureScrollRef,
+    const newContext = {
+      virtualizedCell: this.context.virtualizedCell,
+      virtualizedList: {
+        getScrollMetrics: this._getScrollMetrics,
+        horizontal: this.props.horizontal,
+        getOutermostParentListRef: this._getOutermostParentListRef,
+        getNestedChildState: this._getNestedChildState,
+        registerAsNestedChild: this._registerAsNestedChild,
+        unregisterAsNestedChild: this._unregisterAsNestedChild,
       },
-      cells,
+    };
+
+    const ret = (
+      <VirtualizedListContext.Provider value={newContext}>
+        {React.cloneElement(
+          (this.props.renderScrollComponent || this._defaultRenderScrollComponent)(scrollProps),
+          {ref: this._captureScrollRef},
+          cells,
+        )}
+      </VirtualizedListContext.Provider>
     );
+
     if (this.props.debug) {
       return (
         <View style={styles.debug}>
@@ -1711,11 +1693,7 @@ class CellRenderer extends React.Component<
     },
   };
 
-  static childContextTypes = {
-    virtualizedCell: PropTypes.shape({
-      cellKey: PropTypes.string,
-    }),
-  };
+  static contextType = VirtualizedListContext;
 
   static getDerivedStateFromProps(
     props: CellRendererProps,
@@ -1727,15 +1705,7 @@ class CellRenderer extends React.Component<
         leadingItem: props.item,
       },
     };
-  }
-
-  getChildContext() {
-    return {
-      virtualizedCell: {
-        cellKey: this.props.cellKey,
-      },
-    };
-  }
+  };
 
   // TODO: consider factoring separator stuff out of VirtualizedList into FlatList since it's not
   // reused by SectionList and we can keep VirtualizedList simpler.
@@ -1858,13 +1828,20 @@ class CellRenderer extends React.Component<
       );
     }
     return (
-      <CellRendererComponent
-        {...this.props}
-        style={cellStyle}
-        onLayout={onLayout}>
-        {element}
-        {itemSeparator}
-      </CellRendererComponent>
+      <VirtualizedListContext.Provider
+        value={{
+          virtualizedCell: {cellKey: this.props.cellKey},
+          virtualizedList: this.context.virtualizedList,
+        }}
+      >
+        <CellRendererComponent
+          {...this.props}
+          style={cellStyle}
+          onLayout={onLayout}>
+          {element}
+          {itemSeparator}
+        </CellRendererComponent>
+      </VirtualizedListContext.Provider>
     );
   }
 }
@@ -1873,22 +1850,19 @@ class VirtualizedCellWrapper extends React.Component<{
   cellKey: string,
   children: React.Node,
 }> {
-  static childContextTypes = {
-    virtualizedCell: PropTypes.shape({
-      cellKey: PropTypes.string,
-    }),
-  };
-
-  getChildContext() {
-    return {
-      virtualizedCell: {
-        cellKey: this.props.cellKey,
-      },
-    };
-  }
+  static contextType = VirtualizedListContext;
 
   render() {
-    return this.props.children;
+    return (
+      <VirtualizedListContext.Provider
+        value={{
+          virtualizedCell: {cellKey: this.props.cellKey},
+          virtualizedList: this.context.virtualizedList,
+        }}
+      >
+        {this.props.children}
+      </VirtualizedListContext.Provider>
+    );
   }
 }
 

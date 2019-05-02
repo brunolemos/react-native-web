@@ -119,7 +119,6 @@ export type Props<SectionT> = RequiredProps<SectionT> &
 type DefaultProps = typeof VirtualizedList.defaultProps & {
   data: $ReadOnlyArray<Item>,
 };
-type State = {childProps: VirtualizedListProps};
 
 /**
  * Right now this just flattens everything into one list and uses VirtualizedList under the
@@ -128,11 +127,13 @@ type State = {childProps: VirtualizedListProps};
  */
 class VirtualizedSectionList<SectionT: SectionBase> extends React.PureComponent<
   Props<SectionT>,
-  State,
 > {
   props: Props<SectionT>;
 
-  state: State;
+  state = {
+    stickyHeaderIndices: [],
+    itemCount: 0,
+  };
 
   static defaultProps: DefaultProps = {
     ...VirtualizedList.defaultProps,
@@ -311,7 +312,7 @@ class VirtualizedSectionList<SectionT: SectionBase> extends React.PureComponent<
     const ItemSeparatorComponent =
       info.section.ItemSeparatorComponent || this.props.ItemSeparatorComponent;
     const {SectionSeparatorComponent} = this.props;
-    const isLastItemInList = index === this.state.childProps.getItemCount() - 1;
+    const isLastItemInList = index === this.state.itemCount - 1;
     const isLastItemInSection = info.index === info.section.data.length - 1;
     if (SectionSeparatorComponent && isLastItemInSection) {
       return SectionSeparatorComponent;
@@ -322,7 +323,7 @@ class VirtualizedSectionList<SectionT: SectionBase> extends React.PureComponent<
     return null;
   }
 
-  _computeState(props: Props<SectionT>): State {
+  static getDerivedStateFromProps(props) {
     const offset = props.ListHeaderComponent ? 1 : 0;
     const stickyHeaderIndices = [];
     const itemCount = props.sections.reduce((v, section) => {
@@ -331,36 +332,34 @@ class VirtualizedSectionList<SectionT: SectionBase> extends React.PureComponent<
     }, 0);
 
     return {
-      childProps: {
-        ...props,
-        renderItem: this._renderItem,
-        ItemSeparatorComponent: undefined, // Rendered with renderItem
-        data: props.sections,
-        getItemCount: () => itemCount,
-        getItem,
-        keyExtractor: this._keyExtractor,
-        onViewableItemsChanged: props.onViewableItemsChanged
-          ? this._onViewableItemsChanged
-          : undefined,
-        stickyHeaderIndices: props.stickySectionHeadersEnabled
-          ? stickyHeaderIndices
-          : undefined,
-      },
+      stickyHeaderIndices,
+      itemCount,
     };
   }
 
-  constructor(props: Props<SectionT>, context: Object) {
-    super(props, context);
-    this.state = this._computeState(props);
-  }
-
-  UNSAFE_componentWillReceiveProps(nextProps: Props<SectionT>) {
-    this.setState(this._computeState(nextProps));
-  }
-
   render() {
+    const {itemCount} = this.state;
     return (
-      <VirtualizedList {...this.state.childProps} ref={this._captureRef} />
+      <VirtualizedList
+        {...this.props}
+        ref={this._captureRef}
+        renderItem={this._renderItem}
+        ItemSeparatorComponent={undefined} // Rendered with renderItem
+        data={this.props.sections}
+        getItemCount={() => itemCount}
+        getItem={getItem}
+        keyExtractor={this._keyExtractor}
+        onViewableItemsChanged={
+          this.props.onViewableItemsChanged
+            ? this._onViewableItemsChanged
+            : undefined
+        }
+        stickyHeaderIndices={
+          this.props.stickySectionHeadersEnabled
+            ? this.state.stickyHeaderIndices
+            : undefined
+        }
+      />
     );
   }
 
@@ -397,19 +396,9 @@ class ItemWithSeparator extends React.Component<
   state = {
     separatorProps: {
       highlighted: false,
-      leadingItem: this.props.item,
-      leadingSection: this.props.leadingSection,
-      section: this.props.section,
-      trailingItem: this.props.trailingItem,
-      trailingSection: this.props.trailingSection,
     },
     leadingSeparatorProps: {
       highlighted: false,
-      leadingItem: this.props.leadingItem,
-      leadingSection: this.props.leadingSection,
-      section: this.props.section,
-      trailingItem: this.props.item,
-      trailingSection: this.props.trailingSection,
     },
   };
 
@@ -439,27 +428,6 @@ class ItemWithSeparator extends React.Component<
     },
   };
 
-  UNSAFE_componentWillReceiveProps(props: ItemWithSeparatorProps) {
-    this.setState(state => ({
-      separatorProps: {
-        ...this.state.separatorProps,
-        leadingItem: props.item,
-        leadingSection: props.leadingSection,
-        section: props.section,
-        trailingItem: props.trailingItem,
-        trailingSection: props.trailingSection,
-      },
-      leadingSeparatorProps: {
-        ...this.state.leadingSeparatorProps,
-        leadingItem: props.leadingItem,
-        leadingSection: props.leadingSection,
-        section: props.section,
-        trailingItem: props.item,
-        trailingSection: props.trailingSection,
-      },
-    }));
-  }
-
   updateSeparatorProps(newProps: Object) {
     this.setState(state => ({
       separatorProps: {...state.separatorProps, ...newProps},
@@ -481,10 +449,24 @@ class ItemWithSeparator extends React.Component<
       separators: this._separators,
     });
     const leadingSeparator = LeadingSeparatorComponent && (
-      <LeadingSeparatorComponent {...this.state.leadingSeparatorProps} />
+      <LeadingSeparatorComponent
+        {...this.state.leadingSeparatorProps}
+        leadingItem={this.props.leadingItem}
+        leadingSection={this.props.leadingSection}
+        section={this.props.section}
+        trailingItem={this.props.item}
+        trailingSection={this.props.trailingSection}
+      />
     );
     const separator = SeparatorComponent && (
-      <SeparatorComponent {...this.state.separatorProps} />
+      <SeparatorComponent
+        {...this.state.separatorProps}
+        leadingItem={this.props.item}
+        leadingSection={this.props.leadingSection}
+        section={this.props.section}
+        trailingItem={this.props.trailingItem}
+        trailingSection={this.props.trailingSection}
+      />
     );
     return leadingSeparator || separator ? (
       <View>

@@ -12,10 +12,7 @@ import StyleSheet from '../StyleSheet';
 import View from '../View';
 import { any, node } from 'prop-types';
 import React, { Component, type ComponentType } from 'react';
-
-type Context = {
-  rootTag: any
-};
+import RootTagContext from './RootTagContext';
 
 type Props = {
   WrapperComponent?: ?ComponentType<*>,
@@ -31,21 +28,11 @@ type State = {
 export default class AppContainer extends Component<Props, State> {
   state = { mainKey: 1 };
 
-  static childContextTypes = {
-    rootTag: any
-  };
-
   static propTypes = {
     WrapperComponent: any,
     children: node,
     rootTag: any.isRequired
   };
-
-  getChildContext(): Context {
-    return {
-      rootTag: this.props.rootTag
-    };
-  }
 
   render() {
     const { children, WrapperComponent } = this.props;
@@ -63,9 +50,11 @@ export default class AppContainer extends Component<Props, State> {
     }
 
     return (
-      <View pointerEvents="box-none" style={styles.appContainer}>
-        {innerView}
-      </View>
+      <RootTagContext.Provider value={this.props.rootTag}>
+        <View pointerEvents="box-none" style={styles.appContainer}>
+          {innerView}
+        </View>
+      </RootTagContext.Provider>
     );
   }
 }

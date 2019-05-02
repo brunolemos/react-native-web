@@ -10,7 +10,6 @@
 
 import applyLayout from '../../modules/applyLayout';
 import applyNativeMethods from '../../modules/applyNativeMethods';
-import { bool } from 'prop-types';
 import createElement from '../createElement';
 import css from '../StyleSheet/css';
 import filterSupportedProps from './filterSupportedProps';
@@ -19,6 +18,7 @@ import warning from 'fbjs/lib/warning';
 import StyleSheet from '../StyleSheet';
 import ViewPropTypes, { type ViewProps } from './ViewPropTypes';
 import React, { Component } from 'react';
+import Text from '../Text';
 
 const calculateHitSlopStyle = hitSlop => {
   const hitStyle = {};
@@ -34,9 +34,7 @@ const calculateHitSlopStyle = hitSlop => {
 class View extends Component<ViewProps> {
   static displayName = 'View';
 
-  static contextTypes = {
-    isInAParentText: bool
-  };
+  static contextType = Text.ParentContext;
 
   static propTypes = ViewPropTypes;
 
@@ -55,7 +53,7 @@ class View extends Component<ViewProps> {
       });
     }
 
-    const { isInAParentText } = this.context;
+    const isInAParentText = this.context;
 
     supportedProps.classList = [this.props.className, classes.view];
     supportedProps.style = StyleSheet.compose(
