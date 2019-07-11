@@ -7,5 +7,15 @@
  * @noflow
  */
 
-import { render } from 'react-dom';
-export default render;
+import { type ComponentType } from 'react';
+import { unstable_createRoot } from 'react-dom';
+
+export default function render<Props: Object>(
+  element: ComponentType<Props>,
+  container: any,
+  callback?: () => void
+) {
+  const isDevelopment = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test';
+  if (isDevelopment) console.log('Concurrent Mode enabled.');
+  unstable_createRoot(container).render(element);
+}
